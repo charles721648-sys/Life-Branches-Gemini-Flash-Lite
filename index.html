@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>人生分支模擬器 3.0 - 體驗百味人生</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & 繁體中文支援 -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Noto Sans TC"', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); }
+            50% { box-shadow: 0 0 25px rgba(59, 130, 246, 0.6); }
+        }
+        .glow-card {
+            animation: pulseGlow 3s infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-3 sm:p-6 select-none">
+
+    <!-- 頂部標題列 -->
+    <header class="w-full max-w-4xl text-center my-2 sm:my-4">
+        <h1 class="text-3xl sm:text-4xl font-black tracking-wider bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent">
+            人生分支模擬器 <span class="text-xs px-2 py-0.5 rounded bg-blue-600/30 border border-blue-500/50 text-blue-300">v3.0 深度體驗版</span>
+        </h1>
+        <p class="text-slate-400 text-xs sm:text-sm mt-1">每一個抉擇，都是一條獨一無二的命運分岔路</p>
+    </header>
+
+    <!-- 主遊戲容器 -->
+    <main id="app-container" class="w-full max-w-4xl bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col flex-grow my-2 backdrop-blur-md">
+        
+        <!-- 動態內容渲染區 -->
+        <div id="game-view" class="flex-grow p-4 sm:p-8 flex flex-col justify-center items-center">
+            <!-- 初始載入畫面或由 JS 動態填充 -->
+            <div class="text-center space-y-6 max-w-lg">
+                <div class="w-20 h-20 bg-blue-600/20 border border-blue-500/40 rounded-3xl mx-auto flex items-center justify-center text-4xl shadow-lg">
+                    🌱
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-bold text-slate-100">準備好體驗全新的人生了嗎？</h2>
+                <p class="text-slate-400 text-sm sm:text-base leading-relaxed">
+                    在這次的模擬中，你將經歷 8 種不同開局、經歷深度性格測驗、每 3-5 年面對職場、感情、生老病死的重大抉擇，以及無數令人哭笑不得的突發事件。
+                </p>
+                <button onclick="startGameFlow()" class="w-full py-4 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/30 transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer">
+                    開啟我的一生 ✨
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- 底部版權資訊 -->
+    <footer class="w-full max-w-4xl text-center text-xs text-slate-500 mt-2">
+        人生分支模擬器 3.0 &copy; 2026 | 體驗百態人生，無須後悔，笑著走完每一程。
+    </footer>
+
+    <!-- 內嵌 JavaScript 遊戲邏輯與資料庫 -->
+    <script>
+        // ==========================================
+        // 遊戲資料庫與全域狀態
+        // ==========================================
+        let gameState = {
+            step: 'WELCOME', // WELCOME, QUIZ, ORIGIN_SELECT, MAIN, EVENT, END
+            quizIndex: 0,
+            quizAnswers: [],
+            personalityTraits: [],
+            origin: null,
+            age: 0,
+            wealth: 50,
+            health: 80,
+            happiness: 70,
+            prestige: 10,
+            alive: true,
+            history: [],
+            currentEvent: null,
+            career: '無業 / 嬰幼兒',
+            partner: null,
+            childrenCount: 0,
+            educationLevel: '未入學',
+            specialItems: []
+        };
+
+        // 性格測驗題庫 (6題)
+        const quizQuestions = [
+            {
+                q: "當你在路上撿到一個掉落的黑色名牌皮夾，裡面有大量現金且沒有證件，你會？",
+                options: [
+                    { text: "交給警察局或尋求失物招領", trait: "正義感", w: 10, h: 5, f: -5 },
+                    { text: "默默放回原處或原地等失主", trait: "謹慎", w: 0, h: 0, f: 5 },
+                    { text: "天降橫財！拿去吃大餐和網購", trait: "貪婪/果斷", w: 20, h: -5, f: -10 }
+                ]
+            },
+            {
+                q: "面對團隊分組報告時，組員全部裝死擺爛，你會怎麼做？",
+                options: [
+                    { text: "自己默默扛下所有工作，追求完美分數", trait: "勞碌命/責任感", w: -5, h: -10, p: 15 },
+                    { text: "直接向老師舉報所有人名字，劃清界線", trait: "冷酷/現實", w: 0, h: 5, p: -5 },
+                    { text: "擺爛大家一起死，反正我也躺平", trait: "躺平主義", w: 0, h: 10, p: -10 }
+                ]
+            },
+            {
+                q: "週末難得放假，你更傾向於哪種活動？",
+                options: [
+                    { text: "宅在家打電動、看動漫、睡到自然醒", trait: "內向宅", w: 0, h: 5, happiness: 15 },
+                    { text: "去參加大型社交派對或戶外極限運動", trait: "社交達人/冒險", w: -10, h: 10, happiness: 20 },
+                    { text: "去圖書館進修、報名理財或技能課程", trait: "內卷狂人", w: 10, h: -5, prestige: 10 }
+                ]
+            },
+            {
+                q: "如果有一個穩定的鐵飯碗工作，但薪水不高且生活枯燥，你會接受嗎？",
+                options: [
+                    { text: "當然好！求之不得，安全第一", trait: "保守穩健", w: 10, h: 10, happiness: 5 },
+                    { text: "絕對不要，人生就是要充滿風險與刺激", trait: "高風險偏好", w: -10, h: -10, prestige: 15 },
+                    { text: "先做一陣子存錢，一邊尋找創業機會", trait: "野心勃勃", w: 5, h: 0, p: 10 }
+                ]
+            },
+            {
+                q: "當朋友跟您借錢創業，且這筆錢會影響到你三個月的生活費時，你如何抉擇？",
+                options: [
+                    { text: "二話不說借！兄弟情義大過天", trait: "重情義", w: -20, h: 0, happiness: 5 },
+                    { text: "婉轉拒絕，錢財事大，親兄弟明算帳", trait: "理性現實", w: 15, h: 5, happiness: 0 },
+                    { text: "假裝沒看到訊息或直接已讀不回", trait: "社交逃避", w: 5, h: 5, happiness: 10 }
+                ]
+            },
+            {
+                q: "你認為人生中最重要的事情是什麼？",
+                options: [
+                    { text: "財富自由，賺大錢享受物質生活", trait: "金錢至上", w: 25, h: -5, happiness: 5 },
+                    { text: "身心健康，平安喜樂度過每一天", trait: "佛系養生", w: 0, h: 25, happiness: 20 },
+                    { text: "名留青史，做出一番偉大成就", trait: "事業狂熱", w: 10, h: -10, prestige: 30 }
+                ]
+            }
+        ];
+
+        // 8 種獨特開局背景
+        const origins = [
+            {
+                id: 'tech_heir',
+                name: '矽谷科技新貴之子',
+                icon: '💻',
+                desc: '含著金湯匙出生，父母為科技巨頭高管或連續創業者。從小接觸頂尖科技與國際視野。',
+                init: { wealth: 85, health: 90, happiness: 75, prestige: 40 },
+                perk: '起步資本雄厚，學歷與人脈起手加成'
+            },
+            {
+                id: 'rural_farm',
+                name: '偏鄉務農家庭',
+                icon: '🌾',
+                desc: '純樸的鄉村長大，雖然物質資源匱乏，但擁有強健的體魄與刻苦耐勞的堅韌心志。',
+                init: { wealth: 20, health: 95, happiness: 65, prestige: 5 },
+                perk: '超強抗壓性與生命韌性，免疫多數小病'
+            },
+            {
+                id: 'middle_class',
+                name: '中產雙薪家庭',
+                icon: '🏡',
+                desc: '標準的城市小康家庭，父母是工程師與教師，生活安穩無虞，但凡事靠自己努力。',
+                init: { wealth: 50, health: 80, happiness: 70, prestige: 15 },
+                perk: '均衡發展，無特別負擔也無巨額資助'
+            },
+            {
+                id: 'art_family',
+                name: '藝術世家',
+                icon: '🎨',
+                desc: '充滿浪漫主義與美學氣息的環境中長大，靈魂敏感且富有創造力，但財務時常波動。',
+                init: { wealth: 40, health: 70, happiness: 85, prestige: 30 },
+                perk: '藝術與審美天賦高，更容易獲得精神滿足'
+            },
+            {
+                id: 'underworld',
+                name: '地下社會邊緣人',
+                icon: '🕶️',
+                desc: '複雜動盪的成長環境，從小見盡人情冷暖。造就了極強的生存智慧與鋌而走險的膽識。',
+                init: { wealth: 15, health: 65, happiness: 50, prestige: 20 },
+                perk: '危機處理能力強，常有奇特偏門機會'
+            },
+            {
+                id: 'prodigy',
+                name: '天才資優生（清寒）',
+                icon: '📚',
+                desc: '智商超群但家境清寒，全靠獎學金與自身無比的苦讀來翻轉命運，壓力極大。',
+                init: { wealth: 25, health: 70, happiness: 55, prestige: 45 },
+                perk: '學習能力頂級，考試與升學通行無阻'
+            },
+            {
+                id: 'chaebol',
+                name: '財閥豪門繼承人',
+                icon: '👑',
+                desc: '含鑽石湯匙出生，家族掌控龐大企業集團。從小衣食無憂，但活在家族權力鬥爭的陰影下。',
+                init: { wealth: 98, health: 85, happiness: 60, prestige: 80 },
+                perk: '金錢與社會聲望極高，社會資源無限'
+            },
+            {
+                id: 'influencer',
+                name: '網紅直播主家庭',
+                icon: '📸',
+                desc: '從小暴露在鏡頭與大眾目光下，父母皆為知名自媒體創作者，擅長流量運作與包裝自己。',
+                init: { wealth: 60, health: 75, happiness: 65, prestige: 50 },
+                perk: '社交魅力與聲望成長速度加倍'
+            }
+        ];
+
+        // 各年齡層事件與抉擇對照表 (每3-5年觸發一次)
+        // 幼兒/童年 (0-12) -> 青少年 (13-18) -> 大學/求職 (19-25) -> 青年創業/結婚 (26-40) -> 中年危機 (41-60) -> 老年晚年 (61-85+)
+        
+        function startGameFlow() {
+            gameState.step = 'QUIZ';
+            gameState.quizIndex = 0;
+            gameState.quizAnswers = [];
+            renderQuiz();
+        }
+
+        function renderQuiz() {
+            const q = quizQuestions[gameState.quizIndex];
+            const view = document.getElementById('game-view');
+            
+            let html = `
+                <div class="w-full max-w-xl mx-auto space-y-6 animate-fade-in">
+                    <div class="flex justify-between items-center text-xs text-slate-400 font-medium tracking-wider uppercase">
+                        <span>性格潛意識測驗 (${gameState.quizIndex + 1} / ${quizQuestions.length})</span>
+                        <span>進度 ${Math.round(((gameState.quizIndex + 1) / quizQuestions.length) * 100)}%</span>
+                    </div>
+                    <!-- 進度條 -->
+                    <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div class="h-full bg-blue-500 transition-all duration-300" style="width: ${((gameState.quizIndex + 1) / quizQuestions.length) * 100}%"></div>
+                    </div>
+
+                    <div class="bg-slate-800/60 border border-slate-700/60 p-6 rounded-2xl shadow-lg">
+                        <h3 class="text-lg sm:text-xl font-bold text-slate-100 mb-6 leading-snug">${q.q}</h3>
+                        <div class="space-y-3">
+            `;
+
+            q.options.forEach((opt, idx) => {
+                html += `
+                    <button onclick="handleQuizAnswer(${idx})" class="w-full text-left p-4 rounded-xl bg-slate-800 hover:bg-blue-600/20 border border-slate-700 hover:border-blue-500/50 text-slate-200 text-sm sm:text-base transition duration-200 flex items-center justify-between group cursor-pointer">
+                        <span>${opt.text}</span>
+                        <span class="text-xs text-blue-400 opacity-0 group-hover:opacity-100 transition">選擇 ➔</span>
+                    </button>
+                `;
+            });
+
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+            view.innerHTML = html;
+        }
+
+        function handleQuizAnswer(optIdx) {
+            const q = quizQuestions[gameState.quizIndex];
+            const selectedOpt = q.options[optIdx];
+            gameState.quizAnswers.push(selectedOpt);
+            gameState.personalityTraits.push(selectedOpt.trait);
+
+            // 微調初始潛在數值
+            if (selectedOpt.w) gameState.wealth += selectedOpt.w;
+            if (selectedOpt.h) gameState.health += selectedOpt.h;
+            if (selectedOpt.f) gameState.happiness += selectedOpt.f;
+
+            gameState.quizIndex++;
+            if (gameState.quizIndex < quizQuestions.length) {
+                renderQuiz();
+            } else {
+                renderOriginSelect();
+            }
+        }
+
+        function renderOriginSelect() {
+            gameState.step = 'ORIGIN_SELECT';
+            const view = document.getElementById('game-view');
+
+            let html = `
+                <div class="w-full max-w-3xl mx-auto space-y-6 animate-fade-in">
+                    <div class="text-center space-y-2">
+                        <h2 class="text-2xl sm:text-3xl font-bold text-slate-100">選擇你的出身背景</h2>
+                        <p class="text-slate-400 text-sm">基於你的心靈測驗，你已準備好降臨這個世界。請選擇你的起始身分：</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto custom-scrollbar p-1">
+            `;
+
+            origins.forEach((org) => {
+                html += `
+                    <div onclick="selectOrigin('${org.id}')" class="bg-slate-800/70 hover:bg-slate-800 border border-slate-700/80 hover:border-blue-500 p-4 rounded-2xl cursor-pointer transition transform hover:-translate-y-1 shadow-md flex flex-col justify-between group">
+                        <div>
+                            <div class="flex items-center space-x-3 mb-2">
+                                <span class="text-3xl">${org.icon}</span>
+                                <h3 class="text-base sm:text-lg font-bold text-slate-100 group-hover:text-blue-400 transition">${org.name}</h3>
+                            </div>
+                            <p class="text-xs text-slate-400 mb-3 leading-relaxed">${org.desc}</p>
+                        </div>
+                        <div class="pt-3 border-t border-slate-700/50 flex flex-col space-y-1 text-xs text-slate-300">
+                            <div class="flex justify-between">
+                                <span class="text-blue-400">天賦優勢:</span>
+                                <span class="text-right text-slate-300">${org.perk}</span>
+                            </div>
+                            <div class="flex justify-between pt-1">
+                                <span>💰財富:${org.init.wealth} | ❤️健康:${org.init.health}</span>
+                                <span>😊快樂:${org.init.happiness} | 🌟聲望:${org.init.prestige}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+            view.innerHTML = html;
+        }
+
+        function selectOrigin(orgId) {
+            const org = origins.find(o => o.id === orgId);
+            gameState.origin = org;
+            gameState.wealth = org.init.wealth;
+            gameState.health = org.init.health;
+            gameState.happiness = org.init.happiness;
+            gameState.prestige = org.init.prestige;
+            gameState.age = 0;
+            gameState.history = [{ age: 0, text: `你在【${org.name}】誕生了！哭聲宏亮，開啟了你的一生。` }];
+
+            gameState.step = 'MAIN';
+            renderMainGame();
+        }
+
+        // 主遊戲介面 (狀態面板 + 事件/決策互動區 + 歷史足跡)
+        function renderMainGame() {
+            const view = document.getElementById('game-view');
+
+            let html = `
+                <div class="w-full flex flex-col space-y-4 animate-fade-in">
+                    <!-- 狀態儀表板 -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-800/80 border border-slate-700/80 p-4 rounded-2xl shadow-inner">
+                        <div class="flex items-center space-x-3">
+                            <div class="text-2xl">👤</div>
+                            <div>
+                                <div class="text-xs text-slate-400">年齡 / 身分</div>
+                                <div class="text-sm font-bold text-slate-100">${gameState.age} 歲 <span class="text-xs font-normal text-blue-400">(${gameState.origin.name})</span></div>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <div class="text-2xl">💰</div>
+                            <div class="w-full">
+                                <div class="flex justify-between text-xs text-slate-400"><span>財富</span><span class="font-bold text-emerald-400">${gameState.wealth}</span></div>
+                                <div class="w-full h-1.5 bg-slate-700 rounded-full mt-1 overflow-hidden"><div class="h-full bg-emerald-500 transition-all duration-300" style="width: ${Math.min(100, Math.max(0, gameState.wealth))}%"></div></div>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <div class="text-2xl">❤️</div>
+                            <div class="w-full">
+                                <div class="flex justify-between text-xs text-slate-400"><span>健康</span><span class="font-bold text-rose-400">${gameState.health}</span></div>
+                                <div class="w-full h-1.5 bg-slate-700 rounded-full mt-1 overflow-hidden"><div class="h-full bg-rose-500 transition-all duration-300" style="width: ${Math.min(100, Math.max(0, gameState.health))}%"></div></div>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <div class="text-2xl">😊</div>
+                            <div class="w-full">
+                                <div class="flex justify-between text-xs text-slate-400"><span>快樂</span><span class="font-bold text-amber-400">${gameState.happiness}</span></div>
+                                <div class="w-full h-1.5 bg-slate-700 rounded-full mt-1 overflow-hidden"><div class="h-full bg-amber-500 transition-all duration-300" style="width: ${Math.min(100, Math.max(0, gameState.happiness))}%"></div></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 職業與婚姻狀態列 -->
+                    <div class="flex flex-wrap items-center justify-between bg-slate-800/40 border border-slate-700/50 px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-300">
+                        <div class="flex space-x-4">
+                            <span>💼 職業/身分: <strong class="text-blue-300">${gameState.career}</strong></span>
+                            <span>🎓 學歷: <strong class="text-indigo-300">${gameState.educationLevel}</strong></span>
+                        </div>
+                        <div class="flex space-x-4 mt-1 sm:mt-0">
+                            <span>💍 伴侶: <strong class="text-pink-300">${gameState.partner || '單身貴族'}</strong></span>
+                            <span>👶 子女: <strong class="text-emerald-300">${gameState.childrenCount} 位</strong></span>
+                        </div>
+                    </div>
+
+                    <!-- 中間互動與記事區域 (兩欄式) -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- 當前事件 / 抉擇區 (佔 2 欄) -->
+                        <div id="event-panel" class="md:col-span-2 bg-slate-800/60 border border-slate-700/70 p-6 rounded-2xl shadow-lg flex flex-col justify-between">
+                            <!-- 動態填充事件或按鈕 -->
+                        </div>
+
+                        <!-- 歷史足跡回顧 (佔 1 欄) -->
+                        <div class="bg-slate-800/40 border border-slate-700/50 p-4 rounded-2xl flex flex-col h-[320px]">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center justify-between">
+                                <span>📜 人生足跡紀事</span>
+                                <span class="text-[10px] text-blue-400">${gameState.history.length} 筆記錄</span>
+                            </h4>
+                            <div id="history-scroll" class="flex-grow overflow-y-auto custom-scrollbar space-y-2 pr-1 text-xs">
+                                ${gameState.history.slice().reverse().map(h => `
+                                    <div class="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/50 text-slate-300 leading-relaxed">
+                                        <span class="text-blue-400 font-bold mr-1">[${h.age}歲]</span> ${h.text}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            view.innerHTML = html;
+            loadNextEventOrMilestone();
+        }
+
+        // 核心事件生成引擎 (依據年齡與狀態動態觸發)
+        function loadNextEventOrMilestone() {
+            const panel = document.getElementById('event-panel');
+
+            // 檢查生死狀態
+            if (gameState.health <= 0 || gameState.wealth < -20 || gameState.age >= 95) {
+                triggerEnding();
+                return;
+            }
+
+            // 根據年齡階段判斷是「重大抉擇點」還是「隨機突發事件」
+            let eventData = getEventByAge(gameState.age);
+
+            let html = `
+                <div class="space-y-4">
+                    <div class="inline-block px-3 py-1 rounded-full bg-blue-600/20 border border-blue-500/40 text-blue-300 text-xs font-medium">
+                        ✨ ${eventData.tag} (當前年齡: ${gameState.age} 歲)
+                    </div>
+                    <h3 class="text-lg sm:text-xl font-bold text-slate-100 leading-snug">${eventData.title}</h3>
+                    <p class="text-slate-300 text-sm sm:text-base leading-relaxed bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
+                        ${eventData.desc}
+                    </p>
+                </div>
+                <div class="space-y-2.5 mt-6">
+            `;
+
+            eventData.choices.forEach((choice, idx) => {
+                html += `
+                    <button onclick='executeChoice(${JSON.stringify(choice)})' class="w-full text-left p-3.5 sm:p-4 rounded-xl bg-slate-800 hover:bg-blue-600/20 border border-slate-700 hover:border-blue-500 text-slate-200 text-xs sm:text-sm transition duration-200 flex items-center justify-between group cursor-pointer shadow-sm">
+                        <span>${choice.text}</span>
+                        <span class="text-xs text-blue-400 font-bold opacity-0 group-hover:opacity-100 transition">執行抉擇 ➔</span>
+                    </button>
+                `;
+            });
+
+            html += `</div>`;
+            panel.innerHTML = html;
+        }
+
+        // 事件與抉擇題庫生成器
+        function getEventByAge(age) {
+            // 幼兒期 (0-6歲)
+            if (age === 0) {
+                gameState.age = 3;
+                return {
+                    tag: "幼兒啟蒙期 (3歲)",
+                    title: "你開始學會說話與走路，人生第一個微小抉擇來臨",
+                    desc: "父母帶你去逛玩具店，面對櫃檯前琳瑯滿目的玩具，你決定用哪種方式跟爸媽爭取？",
+                    choices: [
+                        { text: "乖巧懂事，主動挑選益智積木玩具", effect: { w: 0, h: 2, f: 5, p: 2, log: "3歲時你展現了乖巧成熟的一面，選擇了益智積木。" }, nextAge: 6 },
+                        { text: "躺在地上大哭大鬧，不買不罷休！", effect: { w: -2, h: -1, f: 10, p: -2, log: "3歲時你在玩具店大鬧一場，成功逼父母買下了昂貴機器人。" }, nextAge: 6 }
+                    ]
+                };
+            }
+            if (age === 6) {
+                gameState.age = 10;
+                return {
+                    tag: "童年學齡期 (10歲)",
+                    title: "小學三年級的校園生活與才藝抉擇",
+                    desc: "學校準備舉辦才藝競賽與社團招生，放學後你的時間該怎麼分配？",
+                    choices: [
+                        { text: "加入程式與奧數社團，贏在起跑點", effect: { w: 5, h: 0, f: -2, p: 8, log: "10歲時你加入奧數社團，成績優異受到老師讚賞。" }, nextAge: 14 },
+                        { text: "加入熱舞社與籃球隊，成為校園風雲人物", effect: { w: 0, h: 5, f: 10, p: 5, log: "10歲時你在運動場上揮灑汗水，結交了一群死黨。" }, nextAge: 14 },
+                        { text: "回家瘋狂打電動、看漫畫，享受快樂童年", effect: { w: -2, h: 2, f: 15, p: -5, log: "10歲時你沉迷電動遊戲，成為班上的遊戲通。" }, nextAge: 14 }
+                    ]
+                };
+            }
+            if (age === 14) {
+                gameState.age = 18;
+                return {
+                    tag: "青春叛逆期 (18歲)",
+                    title: "高中畢業與升學人生大分水嶺",
+                    desc: "面臨考大學的關鍵十字路口，身邊所有人都在給意見，你的人生要往哪走？",
+                    choices: [
+                        { 
+                            text: "拼命苦讀考上頂尖名校熱門科系（資工/醫學）", 
+                            action: () => { gameState.educationLevel = '大學本科畢業'; gameState.career = '準大學生'; },
+                            effect: { w: 10, h: -5, f: -5, p: 20, log: "18歲時你靠著努力考入頂大熱門科系，前途一片光明。" }, 
+                            nextAge: 22 
+                        },
+                        { 
+                            text: "不甩體制！高中畢業直接出社會打工或創業", 
+                            action: () => { gameState.educationLevel = '高中畢業'; gameState.career = '斜槓青年'; },
+                            effect: { w: 15, h: 2, f: 10, p: 5, log: "18歲時你毅然決定放棄升學，提早進入社會歷練。" }, 
+                            nextAge: 22 
+                        },
+                        { 
+                            text: "選擇自己熱愛的藝術/音樂創作科系", 
+                            action: () => { gameState.educationLevel = '藝術學院畢業'; gameState.career = '自由藝術家'; },
+                            effect: { w: 0, h: 0, f: 20, p: 10, log: "18歲時你追隨內心熱情，選擇了充滿挑戰的藝術科系。" }, 
+                            nextAge: 22 
+                        }
+                    ]
+                };
+            }
+            if (age === 22) {
+                gameState.age = 26;
+                return {
+                    tag: "初入職場與感情衝刺 (26歲)",
+                    title: "職場第一份工作與感情抉擇",
+                    desc: "出社會幾年了，你正面臨職場惡鬥與感情的抉擇。此時有一份高薪但爆肝的工作，和一份穩定但薪水普通的公職，你選哪個？",
+                    choices: [
+                        { 
+                            text: "加入高薪科技大廠拼命加班，賺取人生第一桶金", 
+                            action: () => { gameState.career = '資深軟體工程師 / 高管'; },
+                            effect: { w: 30, h: -15, f: -10, p: 15, log: "26歲時你拚命加班換取高薪，存款暴增但健康亮紅燈。" }, 
+                            nextAge: 30 
+                        },
+                        { 
+                            text: "選擇躺平公務員或輕鬆文職，追求生活平衡", 
+                            action: () => { gameState.career = '公務員 / 穩定職員'; },
+                            effect: { w: 10, h: 10, f: 15, p: 0, log: "26歲時你選擇穩定生活，享受工作與生活的平衡。" }, 
+                            nextAge: 30 
+                        },
+                        { 
+                            text: "裸辭與朋友合夥創業，賭一把大的！", 
+                            action: () => { gameState.career = '新創公司創辦人'; },
+                            effect: { w: 20, h: -10, f: 5, p: 25, log: "26歲時你勇敢創業，成為新創團隊的舵手。" }, 
+                            nextAge: 30 
+                        }
+                    ]
+                };
+            }
+            if (age === 30) {
+                gameState.age = 35;
+                return {
+                    tag: "成家立業與家庭責任 (35歲)",
+                    title: "人生中場：婚姻與生育抉擇",
+                    desc: "身邊親友催婚不斷，你遇到了伴侶，面臨是否要結婚生子的重大人生轉折。",
+                    choices: [
+                        { 
+                            text: "與交往多年的伴侶結婚，並生兩個可愛的小孩", 
+                            action: () => { gameState.partner = '溫柔賢淑的伴侶'; gameState.childrenCount = 2; },
+                            effect: { w: -15, h: -5, f: 15, p: 10, log: "35歲時你步入婚姻並迎來孩子，家庭幸福但經濟壓力大增。" }, 
+                            nextAge: 42 
+                        },
+                        { 
+                            text: "堅持不婚不生，享受頂客族與自由人生", 
+                            action: () => { gameState.partner = '獨立伴侶 (頂客)'; },
+                            effect: { w: 10, h: 5, f: 15, p: 5, log: "35歲時你選擇不生小孩，擁抱自由自在的頂客生活。" }, 
+                            nextAge: 42 
+                        },
+                        { 
+                            text: "單身萬歲！把全副心力投入事業與自我投資", 
+                            action: () => { gameState.partner = null; },
+                            effect: { w: 20, h: 0, f: 5, p: 20, log: "35歲時你專注衝刺事業，成為黃金單身貴族。" }, 
+                            nextAge: 42 
+                        }
+                    ]
+                };
+            }
+            if (age === 42) {
+                gameState.age = 50;
+                return {
+                    tag: "中年危機與資產配置 (50歲)",
+                    title: "隨機突發：中年危機與投資陷阱",
+                    desc: "年過半百，身體開始出現老花與腰痠背痛。此時朋友邀約投資熱門虛擬幣或房地產，你該怎麼做？",
+                    choices: [
+                        { text: "砸下大筆資金梭哈高風險投資！", effect: { w: Math.random() > 0.5 ? 35 : -35, h: -5, f: -10, p: 10, log: "50歲時你參與了高風險投資，市場劇烈波動讓你心驚肉跳。" }, nextAge: 60 },
+                        { text: "保守理財，買定期定額基金與保險，照顧身體健康", effect: { w: 5, h: 10, f: 10, p: 0, log: "50歲時你注重養生與穩健理財，生活波瀾不驚卻十分安穩。" }, nextAge: 60 },
+                        { text: "把錢拿去環遊世界，及時行樂！", effect: { w: -20, h: 5, f: 25, p: 5, log: "50歲時你決定放慢腳步，花錢去世界各地看極光與風景。" }, nextAge: 60 }
+                    ]
+                };
+            }
+            if (age === 60) {
+                gameState.age = 70;
+                return {
+                    tag: "晚年退休與傳承 (70歲)",
+                    title: "退休生活與健康紅燈",
+                    desc: "你從職場光榮退休了！但最近健康檢查報告出現紅字，醫生建議你...",
+                    choices: [
+                        { text: "聽從醫囑，戒菸酒並每天早起公園打太極拳", effect: { w: -5, h: 20, f: 10, p: 5, log: "70歲時你積極養生，每天過著愜意的退休晨操生活。" }, nextAge: 80 },
+                        { text: "不管醫生怎麼說，人生苦短，及時行樂大吃大喝", effect: { w: 0, h: -20, f: 15, p: -5, log: "70歲時你維持隨性生活，盡情享受美食與老友聚會。" }, nextAge: 80 },
+                        { text: "將畢生積蓄與經驗成立基金會或回饋社會", effect: { w: -25, h: 5, f: 20, p: 35, log: "70歲時你行善積德，受到社會大眾的尊崇與感謝。" }, nextAge: 80 }
+                    ]
+                };
+            }
+            // 70歲以後隨機突發事件或高齡結局
+            return {
+                tag: "高齡晚年 (80歲+)",
+                title: "人生走馬燈與突發狀況",
+                desc: "步入風燭殘年的老者時期，某天午後你坐在搖椅上，回憶起這一生，此時發生了一個意外插曲：",
+                choices: [
+                    { text: "舉辦一場盛大的生前告別式，跟所有親友道別", effect: { w: -10, h: -10, f: 25, p: 15, log: "80歲時你舉辦了溫馨生前告別式，瀟灑走完精彩一生。" }, nextAge: 95 },
+                    { text: "含飴弄孫，安靜陪伴家人度過每一天", effect: { w: 0, h: 0, f: 20, p: 10, log: "80歲時你享受子孫滿堂的天倫之樂，安詳過日。" }, nextAge: 95 }
+                ]
+            };
+        }
+
+        function executeChoice(choice) {
+            if (choice.action) choice.action();
+            
+            // 套用數值變化
+            gameState.wealth = Math.min(100, Math.max(-20, gameState.wealth + choice.effect.w));
+            gameState.health = Math.min(100, Math.max(0, gameState.health + choice.effect.h));
+            gameState.happiness = Math.min(100, Math.max(0, gameState.happiness + choice.effect.f));
+            if (choice.effect.p) gameState.prestige = Math.min(100, Math.max(0, gameState.prestige + choice.effect.p));
+
+            // 記錄足跡
+            gameState.history.push({ age: gameState.age, text: choice.effect.log });
+
+            // 推進年齡
+            if (choice.nextAge) {
+                gameState.age = choice.nextAge;
+            } else {
+                gameState.age += 3;
+            }
+
+            renderMainGame();
+        }
+
+        // 結局結算系統
+        function triggerEnding() {
+            gameState.step = 'END';
+            const view = document.getElementById('game-view');
+
+            // 計算人生評分
+            let score = Math.round((gameState.wealth * 0.3) + (gameState.health * 0.3) + (gameState.happiness * 0.3) + (gameState.prestige * 0.1));
+            let titleRank = "平凡知足的人生";
+            if (score >= 80) titleRank = "傳奇巨擘 🌟";
+            else if (score >= 60) titleRank = "人生勝利組 🏆";
+            else if (score >= 40) titleRank = "安穩小康 🍀";
+            else titleRank = "波折不斷的浪子 🌪️";
+
+            let html = `
+                <div class="w-full max-w-xl mx-auto space-y-6 text-center animate-fade-in py-4">
+                    <div class="w-20 h-20 bg-purple-600/20 border border-purple-500/40 rounded-3xl mx-auto flex items-center justify-center text-4xl shadow-lg glow-card">
+                        ⚰️
+                    </div>
+                    <div>
+                        <h2 class="text-2xl sm:text-3xl font-black text-slate-100">人生總結報告</h2>
+                        <p class="text-xs sm:text-sm text-blue-400 mt-1">享年 ${gameState.age} 歲 | 出身: ${gameState.origin.name}</p>
+                    </div>
+
+                    <!-- 墓誌銘與稱號 -->
+                    <div class="bg-slate-800/80 border border-slate-700 p-6 rounded-2xl shadow-xl space-y-3 text-left">
+                        <div class="flex justify-between items-center border-b border-slate-700/60 pb-3">
+                            <span class="text-xs text-slate-400">最終獲得稱號</span>
+                            <span class="text-base font-bold text-amber-400">${titleRank}</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-slate-700/60 pb-3">
+                            <span class="text-xs text-slate-400">人生總評分</span>
+                            <span class="text-xl font-black text-emerald-400">${score} 分</span>
+                        </div>
+                        <div class="text-xs text-slate-300 leading-relaxed pt-1">
+                            <strong class="text-blue-300">墓誌銘：</strong> 
+                            「他從 ${gameState.origin.name} 出發，走過 ${gameState.age} 載歲月。經歷了職場的風浪與愛恨情仇，留下了 ${gameState.history.length} 筆深刻的人生足跡。這就是屬於他的獨一無二命運篇章。」
+                        </div>
+                    </div>
+
+                    <!-- 數值總覽 -->
+                    <div class="grid grid-cols-4 gap-2 text-center text-xs">
+                        <div class="bg-slate-800 p-3 rounded-xl border border-slate-700">
+                            <div class="text-slate-400">最終財富</div>
+                            <div class="text-base font-bold text-emerald-400 mt-1">${gameState.wealth}</div>
+                        </div>
+                        <div class="bg-slate-800 p-3 rounded-xl border border-slate-700">
+                            <div class="text-slate-400">最終健康</div>
+                            <div class="text-base font-bold text-rose-400 mt-1">${gameState.health}</div>
+                        </div>
+                        <div class="bg-slate-800 p-3 rounded-xl border border-slate-700">
+                            <div class="text-slate-400">最終快樂</div>
+                            <div class="text-base font-bold text-amber-400 mt-1">${gameState.happiness}</div>
+                        </div>
+                        <div class="bg-slate-800 p-3 rounded-xl border border-slate-700">
+                            <div class="text-slate-400">社會聲望</div>
+                            <div class="text-base font-bold text-blue-400 mt-1">${gameState.prestige}</div>
+                        </div>
+                    </div>
+
+                    <button onclick="restartGame()" class="w-full py-4 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/30 transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer">
+                        重新投胎，開啟新的人生旅程 🔄
+                    </button>
+                </div>
+            `;
+            view.innerHTML = html;
+        }
+
+        function restartGame() {
+            gameState = {
+                step: 'WELCOME',
+                quizIndex: 0,
+                quizAnswers: [],
+                personalityTraits: [],
+                origin: null,
+                age: 0,
+                wealth: 50,
+                health: 80,
+                happiness: 70,
+                prestige: 10,
+                alive: true,
+                history: [],
+                currentEvent: null,
+                career: '無業 / 嬰幼兒',
+                partner: null,
+                childrenCount: 0,
+                educationLevel: '未入學',
+                specialItems: []
+            };
+
+            const view = document.getElementById('game-view');
+            view.innerHTML = `
+                <div class="text-center space-y-6 max-w-lg animate-fade-in">
+                    <div class="w-20 h-20 bg-blue-600/20 border border-blue-500/40 rounded-3xl mx-auto flex items-center justify-center text-4xl shadow-lg">
+                        🌱
+                    </div>
+                    <h2 class="text-2xl sm:text-3xl font-bold text-slate-100">準備好體驗全新的人生了嗎？</h2>
+                    <p class="text-slate-400 text-sm sm:text-base leading-relaxed">
+                        在這次的模擬中，你將經歷 8 種不同開局、深度性格測驗與無數命運分岔路。
+                    </p>
+                    <button onclick="startGameFlow()" class="w-full py-4 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/30 transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer">
+                        開啟我的一生 ✨
+                    </button>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
